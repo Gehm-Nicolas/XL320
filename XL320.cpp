@@ -81,7 +81,7 @@ int XL320::checkMessages()
         case 5: pktLen = c;
                 state = state + 1;
                 break;
-        case 6: pktLen = pktLen + ((unsigned char)c<<8);
+        case 6: pktLen = pktLen + (c<<8);
                 if(pktLen < 3){
                   state = 0;
                   this->total_parameters = 0;
@@ -120,6 +120,7 @@ int XL320::checkMessages()
                 quit = 1;
                 break;
         }
+        if(quit == 1) serialFlush();
       }else{
         state = 0;
         quit = 1;
@@ -148,32 +149,10 @@ int XL320::dataLength(int kindOfData)
     }
   }
 
-void XL320::makeReturnPacket(unsigned int* arrayAddr, int id, int instruction, int memAddress, unsigned char error, unsigned int data)
+int XL320::makeReturnPacket(unsigned char* arrayAddr, unsigned char id, unsigned char instruction, int memAddress, unsigned char error, unsigned int data)
 {
-  /*
-  Status_Packet -> WRITE(0x03)
-  ============================
-  [0xFF,0xFF,0xFD,0x00,
-  Packet_ID,
-  PKT_LEN_L,PKT_LEN_H,
-  0x55,
-  Error,
-  CRC_L,CRC_H]
-
-  Status_Packet -> READ(0x02)
-  ============================
-  [0xFF,0xFF,0xFD,0x00,
-  Packet_ID,
-  PKT_LEN_L,PKT_LEN_H,
-  0x55,
-  Error,
-  Data (1 or 2 bytes),
-  CRC_L,CRC_H]
-  */
-
   int data_len = dataLength(memAddress);
-  unsigned int* message = arrayAddr;
-  //message = (int*)malloc(32 * sizeof(unsigned int));
+  unsigned char* message = arrayAddr;
   unsigned short crc = 0;
 
   for (int i=0; i<32; i++) message[i] = 0;
@@ -191,6 +170,7 @@ void XL320::makeReturnPacket(unsigned int* arrayAddr, int id, int instruction, i
                         crc = crc16(message,message[5]+7);
                         message[9] = crc & 0x00FF; //LSB
                         message[10] = crc >> 8;     //MSB
+                        return 10;
                         break;
     case DXL_READ_DATA: message[5] = data_len+4;//LSB -> PKT_LENGTH(instruction+error+data_length+16bit_CRC)
                         message[6] = 0x00;      //MSB
@@ -201,19 +181,29 @@ void XL320::makeReturnPacket(unsigned int* arrayAddr, int id, int instruction, i
                           crc = crc16(message,message[5]+7);
                           message[10] = crc & 0x00FF; //LSB
                           message[11] = crc >> 8; //MSB
+                          return 11;
                         }else{
                           message[9] = data & 0x00FF;         //LSB
                           message[10] = data >> 8;  //MSB
                           crc = crc16(message,message[5]+7);
                           message[11] = crc & 0x00FF;         //LSB
                           message[12] = crc >> 8;  //MSB
+                          return 12;
                         }
                         break;
-    default:break;
+    default:            message[5] = 0x04;  //LSB (pkt_length)
+                        message[6] = 0x00;  //MSB (pkt_length)
+                        message[7] = DXL_STATUS;
+                        message[8] = DXL_ERROR_INVALID_INSTRUCTION;
+                        crc = crc16(message,message[5]+7);
+                        message[9] = crc & 0x00FF; //LSB
+                        message[10] = crc >> 8;     //MSB
+                        return 10;
+                        break;
   }
 }
 
-unsigned short XL320::crc16(unsigned int *data_blk,int data_blk_size)
+unsigned short XL320::crc16(unsigned char* data_blk,int data_blk_size)
 {
   /*in: data_blk -  entire packet except last 2 crc bytes
     out: crc_accum - 16 bytes (1 word)*/
@@ -252,7 +242,6 @@ unsigned short XL320::crc16(unsigned int *data_blk,int data_blk_size)
         0x8213, 0x0216, 0x021C, 0x8219, 0x0208, 0x820D, 0x8207, 0x0202
     };
 
-  //int data_blk_size = sizeof(data_blk);
   unsigned short crc_accum = 0;
   int i = 0;
   for(int j=0; j < data_blk_size; j++)
@@ -263,7 +252,7 @@ unsigned short XL320::crc16(unsigned int *data_blk,int data_blk_size)
   return crc_accum;
 }
 
-unsigned short update_crc(unsigned short crc_accum, unsigned char *data_blk_ptr, unsigned short data_blk_size)
+/*unsigned short update_crc(unsigned short crc_accum, unsigned char *data_blk_ptr, unsigned short data_blk_size)
 {
   unsigned short i, j;
   unsigned short crc_table[256] = {
@@ -307,28 +296,30 @@ unsigned short update_crc(unsigned short crc_accum, unsigned char *data_blk_ptr,
       crc_accum = (crc_accum << 8) ^ crc_table[i];
   }
   return crc_accum;
-}
+}*/
 
-void XL320::sendStatusPacket(unsigned char error,
-  unsigned char *parameters, int total_parameters)
+
+void XL320::sendStatusPacket(unsigned char id, unsigned char instruction,int memAddress, unsigned char error, unsigned int data)
   {
-    /*unsigned char length = total_parameters + 2;
-    unsigned char checksum = this->id + length + error;
-    for (int i = 0 ; i < total_parameters ; i++)
-    checksum += parameters[i];
-    checksum = ~checksum;
-    unsigned char message[256];
-    for (int i = 0 ; i < 256 ; i++) message[i] = 0;
-    message[0] = 0xff;
-    message[1] = 0xff;
-    message[2] = this->id;
-    message[3] = length;
-    message[4] = error;
-    for (int i = 0 ; i < total_parameters ; i++)
-    {
-      message[5+i] = parameters[i];
+    unsigned char statusPkt[32];
+    int pktLength = makeReturnPacket(statusPkt,id,instruction,memAddress,error,data);
+
+    //digitalWrite(DD_CONTROL,DD_WRITE);
+
+    //_serial.flush();//wait data to be sent*/
+    _serial.write((uint8_t *)statusPkt,pktLength+1);
+    _serial.flush();//wait data to be sent*/
+
+    /*for(int i=0;i<15;i++){
+      _serial.print(statusPkt[i],HEX);
+      _serial.print("_");
     }
-    message[5+total_parameters] = checksum;
-    _serial.write((uint8_t *)message,total_parameters+6);
-    _serial.flush()//wait data to be sent*/
+    _serial.println();*/
+    //digitalWrite(DD_CONTROL,DD_READ);
   }
+
+void XL320::serialFlush(){
+  while(Serial.available() > 0) {
+    Serial.read();
+  }
+}

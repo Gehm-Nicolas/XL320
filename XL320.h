@@ -20,6 +20,11 @@
 #define DXL_BULK_READ   0x92
 #define DXL_BULK_WRITE  0x93
 
+#define DXL_ERROR_OVERLOAD              1
+#define DXL_ERROR_OVER_HEATING          2
+#define DXL_ERROR_INPUT_VOLTAGE         3
+#define DXL_ERROR_INVALID_INSTRUCTION   4
+
 //Memory Addresses
 // -------- EEPROM --------//
 #define DXL_MODEL_NUMBER      0
@@ -55,9 +60,6 @@
 #define DXL_HW_ERROR_STATUS   50
 #define DXL_PUNCH             51
 
-#define DD_READ               HIGH
-#define DD_WRITE              LOW
-
 class XL320 {
   public:
     XL320(long baudRate, unsigned char left_id, unsigned char right_id, HardwareSerial &serIn);
@@ -66,10 +68,10 @@ class XL320 {
     int checkMessages();
     int dataLength(int kindOfData);
 
-    void makeReturnPacket(unsigned int* arrayAddr, int id, int instruction, int memAddress, unsigned char error, unsigned int data);
-    unsigned short crc16(unsigned int *data_blk,int data_blk_size);
-    void sendStatusPacket(unsigned char error,unsigned char *parameters, int total_parameters);
-
+    void sendStatusPacket(unsigned char id, unsigned char instruction,int memAddress, unsigned char error, unsigned int data);
+    int makeReturnPacket(unsigned char* arrayAddr, unsigned char id, unsigned char instruction, int memAddress, unsigned char error, unsigned int data);
+    unsigned short crc16(unsigned char* data_blk,int data_blk_size);
+    void serialFlush();//cleans the data in buffer
 
     long baudRate;
     unsigned char received_id;
