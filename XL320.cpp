@@ -22,16 +22,21 @@ void XL320::end()
   _serial.end();
 }
 
-int XL320::checkMessages()
+int XL320::checkMessages(SoftwareSerial &serIn)
 {
+  const bool debug = true;
   int c;
   int state = 0;
   int pktLen = 0;
   unsigned char sum_params = 0;
   unsigned char dst_id = 0;
   int quit = 0;
-  this->instruction = DXL_NO_DATA;
   int index = 0;
+  this->instruction = DXL_NO_DATA;
+
+  for(index=0;index<32;index++)this->parameters[index]=0;
+
+  index = 0;
 
   while (!quit)
   {
@@ -41,7 +46,8 @@ int XL320::checkMessages()
       switch (state)
       {
         case 0:
-        case 1: if ((unsigned char)c == 0xFF){
+        case 1: if(debug){serIn.print(c);serIn.print("(FF)_");}
+                if ((unsigned char)c == 0xFF){
                   state = state + 1;
                 }else{
                   state = 0;
@@ -49,7 +55,8 @@ int XL320::checkMessages()
                   quit = 1;
                 }
                 break;
-        case 2: if ((unsigned char)c == 0xFD){
+        case 2: if(debug){serIn.print(c);serIn.print("(FD)_");}
+                if ((unsigned char)c == 0xFD){
                   state = state + 1;
                 }else{
                   state = 0;
@@ -57,7 +64,8 @@ int XL320::checkMessages()
                   quit = 1;
                 }
                 break;
-        case 3: if((unsigned char)c == 0x00){
+        case 3: if(debug){serIn.print(c);serIn.print("(00)_");}
+                if((unsigned char)c == 0x00){
                   state = state + 1;
                 }else{
                   state = 0;
@@ -65,7 +73,8 @@ int XL320::checkMessages()
                   quit = 1;
                 }
                 break;
-        case 4: dst_id = (unsigned char)c;
+        case 4: if(debug){serIn.print(c);serIn.print("(id)_");}
+                dst_id = (unsigned char)c;
                 instruction = DXL_NO_DATA;
                 sum_params = 0;
                 if(dst_id == this->left_id || dst_id == this->right_id){
@@ -78,20 +87,23 @@ int XL320::checkMessages()
                   quit = 1;
                 }
                 break;
-        case 5: pktLen = c;
+        case 5: if(debug){serIn.print(c);serIn.print("(lenL)_");}
+                pktLen = c & 0x00FF;
                 state = state + 1;
                 break;
-        case 6: pktLen = pktLen + (c<<8);
+        case 6: if(debug){serIn.print(c);serIn.print("(lenH)_");}
+                pktLen = pktLen + ((c & 0x00FF)<<8);
                 if(pktLen < 3){
                   state = 0;
                   this->total_parameters = 0;
                   quit = 1;
                   break;
                 }
-                this->total_parameters = pktLen - 3;
+                this->total_parameters = pktLen - 3;//3==instruction+crcH+crcL
                 state = state + 1;
                 break;
-        case 7: pktLen = pktLen - 1;
+        case 7: if(debug){serIn.print(c);serIn.print("(I)_");}
+                pktLen = pktLen - 1;
                 this->instruction = (unsigned char)c;
                 sum_params = sum_params + c;
                 if (pktLen == 2){
@@ -100,23 +112,27 @@ int XL320::checkMessages()
                   state = state + 1;
                 }
                 break;
-        case 8: pktLen = pktLen - 1;
-                if (pktLen == 0){
+        case 8: if(debug){serIn.print(c);serIn.print("(P)_");}
+                pktLen = pktLen - 1;
+                this->parameters[index]=(unsigned char)c;
+                if (pktLen == 2){
                   state = state + 1;
                 }else{
-                  this->parameters[index]=(unsigned char)c;
                   index = index + 1;
                 }
                 break;
-        case 9: crc = c;
+        case 9: if(debug){serIn.print(c);serIn.print("(crcL)_");}
+                crc = c & 0x00FF;
                 state = state + 1;
                 break;
-        case 10:crc = crc + (c<<8);
+        case 10:if(debug){serIn.print(c);serIn.println("(crcH)");}
+                crc = crc + ( (c & 0x00FF) <<8);
                 //TODO:Verify CRC
                 state = 0;
                 quit = 1;
                 break;
-        default:state = 0;
+        default:if(debug) serIn.print("DEFAULT");
+                state = 0;
                 quit = 1;
                 break;
         }
