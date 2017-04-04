@@ -4,10 +4,7 @@
 #define LIBRARY_VERSION 1.0.0
 
 #include <HardwareSerial.h>
-#include <SoftwareSerial.h>
 #include <Arduino.h>
-
-#define DEBUG           true
 
 #define DXL_NO_DATA     0xFF
 #define DXL_PING        0x01
@@ -68,7 +65,7 @@ class XL320 {
     XL320(long baudRate, unsigned char left_id, unsigned char right_id, HardwareSerial &serIn);
     void init();
     void end();
-    int checkMessages(SoftwareSerial &serIn);
+    int checkMessages();
     int dataLength(int kindOfData);
 
     void sendStatusPacket(unsigned char id, unsigned char instruction,int memAddress, unsigned char error, unsigned int data);

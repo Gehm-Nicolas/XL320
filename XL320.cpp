@@ -22,9 +22,8 @@ void XL320::end()
   _serial.end();
 }
 
-int XL320::checkMessages(SoftwareSerial &serIn)
+int XL320::checkMessages()
 {
-  const bool debug = true;
   int c;
   int state = 0;
   int pktLen = 0;
@@ -46,8 +45,7 @@ int XL320::checkMessages(SoftwareSerial &serIn)
       switch (state)
       {
         case 0:
-        case 1: if(debug){serIn.print(c);serIn.print("(FF)_");}
-                if ((unsigned char)c == 0xFF){
+        case 1: if ((unsigned char)c == 0xFF){
                   state = state + 1;
                 }else{
                   state = 0;
@@ -55,8 +53,7 @@ int XL320::checkMessages(SoftwareSerial &serIn)
                   quit = 1;
                 }
                 break;
-        case 2: if(debug){serIn.print(c);serIn.print("(FD)_");}
-                if ((unsigned char)c == 0xFD){
+        case 2: if ((unsigned char)c == 0xFD){
                   state = state + 1;
                 }else{
                   state = 0;
@@ -64,8 +61,7 @@ int XL320::checkMessages(SoftwareSerial &serIn)
                   quit = 1;
                 }
                 break;
-        case 3: if(debug){serIn.print(c);serIn.print("(00)_");}
-                if((unsigned char)c == 0x00){
+        case 3: if((unsigned char)c == 0x00){
                   state = state + 1;
                 }else{
                   state = 0;
@@ -73,8 +69,7 @@ int XL320::checkMessages(SoftwareSerial &serIn)
                   quit = 1;
                 }
                 break;
-        case 4: if(debug){serIn.print(c);serIn.print("(id)_");}
-                dst_id = (unsigned char)c;
+        case 4: dst_id = (unsigned char)c;
                 instruction = DXL_NO_DATA;
                 sum_params = 0;
                 if(dst_id == this->left_id || dst_id == this->right_id){
@@ -87,12 +82,10 @@ int XL320::checkMessages(SoftwareSerial &serIn)
                   quit = 1;
                 }
                 break;
-        case 5: if(debug){serIn.print(c);serIn.print("(lenL)_");}
-                pktLen = c & 0x00FF;
+        case 5: pktLen = c & 0x00FF;
                 state = state + 1;
                 break;
-        case 6: if(debug){serIn.print(c);serIn.print("(lenH)_");}
-                pktLen = pktLen + ((c & 0x00FF)<<8);
+        case 6: pktLen = pktLen + ((c & 0x00FF)<<8);
                 if(pktLen < 3){
                   state = 0;
                   this->total_parameters = 0;
@@ -102,8 +95,7 @@ int XL320::checkMessages(SoftwareSerial &serIn)
                 this->total_parameters = pktLen - 3;//3==instruction+crcH+crcL
                 state = state + 1;
                 break;
-        case 7: if(debug){serIn.print(c);serIn.print("(I)_");}
-                pktLen = pktLen - 1;
+        case 7: pktLen = pktLen - 1;
                 this->instruction = (unsigned char)c;
                 sum_params = sum_params + c;
                 if (pktLen == 2){
@@ -112,8 +104,7 @@ int XL320::checkMessages(SoftwareSerial &serIn)
                   state = state + 1;
                 }
                 break;
-        case 8: if(debug){serIn.print(c);serIn.print("(P)_");}
-                pktLen = pktLen - 1;
+        case 8: pktLen = pktLen - 1;
                 this->parameters[index]=(unsigned char)c;
                 if (pktLen == 2){
                   state = state + 1;
@@ -121,18 +112,15 @@ int XL320::checkMessages(SoftwareSerial &serIn)
                   index = index + 1;
                 }
                 break;
-        case 9: if(debug){serIn.print(c);serIn.print("(crcL)_");}
-                crc = c & 0x00FF;
+        case 9: crc = c & 0x00FF;
                 state = state + 1;
                 break;
-        case 10:if(debug){serIn.print(c);serIn.println("(crcH)");}
-                crc = crc + ( (c & 0x00FF) <<8);
+        case 10:crc = crc + ( (c & 0x00FF) <<8);
                 //TODO:Verify CRC
                 state = 0;
                 quit = 1;
                 break;
-        default:if(debug) serIn.print("DEFAULT");
-                state = 0;
+        default:state = 0;
                 quit = 1;
                 break;
         }
@@ -320,18 +308,9 @@ void XL320::sendStatusPacket(unsigned char id, unsigned char instruction,int mem
     unsigned char statusPkt[32];
     int pktLength = makeReturnPacket(statusPkt,id,instruction,memAddress,error,data);
 
-    //digitalWrite(DD_CONTROL,DD_WRITE);
-
-    //_serial.flush();//wait data to be sent*/
-    _serial.write((uint8_t *)statusPkt,pktLength+1);
-    _serial.flush();//wait data to be sent*/
-
-    /*for(int i=0;i<15;i++){
-      _serial.print(statusPkt[i],HEX);
-      _serial.print("_");
-    }
-    _serial.println();*/
-    //digitalWrite(DD_CONTROL,DD_READ);
+    _serial.flush();//wait data to be sent?*/
+    _serial.write((uint8_t *)statusPkt,(pktLength+1));
+    //_serial.flush();//wait data to be sent?*/
   }
 
 void XL320::serialFlush(){
