@@ -173,7 +173,7 @@ int XL320::makeReturnPacket(unsigned char* arrayAddr, unsigned char id, unsigned
                         message[8] = error;
                         crc = crc16(message,message[5]+7);
                         message[9] = crc & 0x00FF; //LSB
-                        message[10] = crc >> 8;     //MSB
+                        message[10] = (crc & 0xFF00) >> 8;     //MSB
                         return 10;
                         break;
     case DXL_READ_DATA: message[5] = data_len+4;//LSB -> PKT_LENGTH(instruction+error+data_length+16bit_CRC)
@@ -184,14 +184,14 @@ int XL320::makeReturnPacket(unsigned char* arrayAddr, unsigned char id, unsigned
                           message[9] = data;
                           crc = crc16(message,message[5]+7);
                           message[10] = crc & 0x00FF; //LSB
-                          message[11] = crc >> 8; //MSB
+                          message[11] = (crc & 0xFF00) >> 8; //MSB
                           return 11;
                         }else{
                           message[9] = data & 0x00FF;         //LSB
-                          message[10] = data >> 8;  //MSB
+                          message[10] = (data & 0xFF00) >> 8;  //MSB
                           crc = crc16(message,message[5]+7);
                           message[11] = crc & 0x00FF;         //LSB
-                          message[12] = crc >> 8;  //MSB
+                          message[12] = (crc & 0xFF00) >> 8;  //MSB
                           return 12;
                         }
                         break;
@@ -201,7 +201,7 @@ int XL320::makeReturnPacket(unsigned char* arrayAddr, unsigned char id, unsigned
                         message[8] = DXL_ERROR_INVALID_INSTRUCTION;
                         crc = crc16(message,message[5]+7);
                         message[9] = crc & 0x00FF; //LSB
-                        message[10] = crc >> 8;     //MSB
+                        message[10] = (crc & 0xFF00) >> 8;     //MSB
                         return 10;
                         break;
   }
